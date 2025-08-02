@@ -6,7 +6,7 @@ from apps.orders.models import (
 from apps.products.serializers import (
     ProductSerializer
 )
-from apps.clients.serializers import ClientSerializer
+from apps.accounts.serializers import UserSerializer
 
 ####
 ##      ARTICLES SERIALIZER
@@ -61,7 +61,7 @@ class BillSerializer(serializers.ModelSerializer):
         rep = super().to_representation(instance)
         
         # ADD CLIENT REPRESENTATION 
-        rep['client'] = ClientSerializer(
+        rep['client'] = UserSerializer(
             instance = instance.client
         ).data
         

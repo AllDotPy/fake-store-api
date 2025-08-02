@@ -3,7 +3,7 @@ from rest_framework.permissions import (
     IsAuthenticated,IsAdminUser,AllowAny
 )
 
-from apps.billflow.billings.serializers import (
+from apps.orders.serializers import (
     BillSerializer,
 )
 

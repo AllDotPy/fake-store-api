@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.billflow.billings.models import (
+from apps.orders.models import (
     Bill
 )
 

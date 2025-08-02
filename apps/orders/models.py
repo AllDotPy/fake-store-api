@@ -6,6 +6,9 @@ from apps.utils.models import TimeStampedUUIDModel
 from apps.products.models import (
     Product,
 )
+from apps.accounts.models import (
+    User
+)
 
 
 # Create your models here.
@@ -58,7 +61,7 @@ class Bill(TimeStampedUUIDModel):
         Article, related_name = 'bills'
     )
     client = models.ForeignKey(
-        Client, on_delete = models.CASCADE,
+        User, on_delete = models.CASCADE,
         null = False, blank = False,
         related_name = 'bills'
     )

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.billflow.categories.models import (
+from apps.categories.models import (
     Category,
 )
 
