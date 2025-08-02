@@ -45,7 +45,7 @@ THIRDPARTY_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
-    "dj_rest_auth",
+    #"dj_rest_auth",
     "corsheaders",
     "rest_framework",
     "rest_framework.authtoken",
@@ -62,8 +62,9 @@ LOCAL_APPS = [
     "apps.accounts",
     "apps.authentications",
     "apps.categories",
-    "apps.products"
+    "apps.products",
     'apps.notifications',
+    "apps.orders",
 ]
 
 INSTALLED_APPS = THIRDPARTY_APPS + LOCAL_APPS

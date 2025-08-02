@@ -9,7 +9,7 @@ from rest_framework.parsers import (
     MultiPartParser, FormParser, JSONParser
 )
 
-from apps.billflow.categories.serializers import (
+from apps.categories.serializers import (
     CategorySerializer
 )
 

@@ -19,6 +19,8 @@ dependencies = [
     "drf-standardized-errors>=0.15.0",
     "infobip-api-python-sdk>=5.0.1",
     "phonenumbers>=9.0.10",
+    "pillow>=11.3.0",
+    "py3-infobip>=0.0.4",
     "python-dotenv>=1.1.1",
     "simplejson>=3.20.1",
 ]

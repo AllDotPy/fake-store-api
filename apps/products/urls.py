@@ -1,6 +1,6 @@
 from rest_framework import routers
 
-from apps.billflow.products.views import (
+from apps.products.views import (
     ProductsViewSet,
 )
 
