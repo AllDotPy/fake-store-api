@@ -1,0 +1,24 @@
+[project]
+name = "fake-store-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "bson>=0.5.10",
+    "django>=5.2.4",
+    "django-cors-headers>=4.7.0",
+    "django-countries>=7.6.1",
+    "django-extensions>=4.1",
+    "django-filter>=25.1",
+    "django-jazzmin>=3.0.1",
+    "django-phonenumber-field>=8.1.0",
+    "django-storages>=1.14.6",
+    "djangorestframework>=3.16.0",
+    "djangorestframework-simplejwt>=5.5.1",
+    "drf-standardized-errors>=0.15.0",
+    "infobip-api-python-sdk>=5.0.1",
+    "phonenumbers>=9.0.10",
+    "python-dotenv>=1.1.1",
+    "simplejson>=3.20.1",
+]
