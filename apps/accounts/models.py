@@ -39,8 +39,8 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
     )
     phone_number = PhoneNumberField(
         _('phone number'), 
-        unique = True, 
-        null = True
+        unique = True,
+        null=True
     )
     is_active = models.BooleanField(default=True)
     is_verified = models.BooleanField(default=False)        # IF USER 'S PHONE NUMBER IS VERIFIED

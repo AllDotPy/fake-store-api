@@ -7,6 +7,9 @@ from apps.products.serializers import (
     ProductSerializer,
 )
 
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework import status
 
 ####
 ##      PRODUCTS VIEWSET
@@ -33,3 +36,25 @@ class ProductsViewSet(ModelViewSet):
             self.permission_classes = [IsAuthenticated,IsAdminUser]
             
         return super().get_permissions()
+
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
+    def like(self, request, id=None):
+        """ Custom action to like a product. """
+        try:
+            product = self.get_object()
+            user = request.user
+
+            if request.method == "DELETE":
+                if user in product.likes.all():
+                    product.likes.remove(user)
+                    return Response({'detail': 'Product unliked .'}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'detail': 'Product not liked yet.'}, status=status.HTTP_400_BAD_REQUEST)
+            if request.method == "POST":
+                if user not in product.likes.all():
+                    product.likes.add(user)
+                    return Response({'detail': 'Product liked successfully.'}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'detail': 'Product already liked.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
