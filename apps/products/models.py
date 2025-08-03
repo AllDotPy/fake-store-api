@@ -27,6 +27,7 @@ class Product(TimeStampedUUIDModel):
     )
     price = models.IntegerField(default = 0)
     tva = models.IntegerField(default = 0)
+    likes = models.ManyToManyField("accounts.User", related_name='liked_products', blank=True)
     
     # META CLASS
     class Meta:
