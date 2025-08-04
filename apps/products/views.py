@@ -5,6 +5,7 @@ from rest_framework.permissions import (
 
 from apps.products.serializers import (
     ProductSerializer,
+    ProductMediaSerializer,
 )
 
 from rest_framework.response import Response
@@ -58,3 +59,35 @@ class ProductsViewSet(ModelViewSet):
                     return Response({'detail': 'Product already liked.'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+####
+##      PRODUCTMEDIAS VIEWSET
+#####
+class ProductMediasViewSet(ModelViewSet):
+    """ ViewSet class for ProductMedia Model. """
+
+    queryset = ProductMediaSerializer.Meta.model.objects.all()
+    serializer_class = ProductMediaSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['title', 'product']
+    search_fields = [
+        'title', 'product__name',
+    ]
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        product_id = self.kwargs.get('product_id')  # From nested URL
+        if product_id:
+            queryset = queryset.filter(product_id=product_id)
+        return queryset
+
+    def get_permissions(self):
+        """ Define a way to use permissions based on requesting user. """
+
+        # USER MUST BE AN ADMIN BEFORE REQUESTING DELETE OR UPDATE ACTION
+        if self.action in ('destroy', 'update'):
+            self.permission_classes = [IsAuthenticated, IsAdminUser]
+
+        return super().get_permissions()
