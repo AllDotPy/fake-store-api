@@ -13,3 +13,6 @@ wheels/
 **migrations/
 *.db
 *.sqlite3
+
+# VS Code
+.vscode
