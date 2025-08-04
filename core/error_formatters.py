@@ -20,6 +20,7 @@ class ExceptionFormatter(ExceptionFormatter):
         # }
         return {
             'starus': 'error',
+            'code': error.code,
             'message': {
                 'en': f'{error.attr if error.attr else ""} {error.detail}',
                 'fr': ''
