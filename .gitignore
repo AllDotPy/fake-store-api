@@ -11,3 +11,5 @@ wheels/
 .environments
 *.lock
 **migrations/
+*.db
+*.sqlite3
