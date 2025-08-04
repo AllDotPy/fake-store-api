@@ -49,6 +49,9 @@ class BillSerializer(serializers.ModelSerializer):
         model = Bill
         fields ="__all__"
         extra_kwargs = {
+            'client':{
+                'read_only': True
+            },
             'articles':{
                 'read_only': True
             }
@@ -82,8 +85,12 @@ class BillSerializer(serializers.ModelSerializer):
         # GET ARTICLES FIRST
         
         articles = validated_data.pop('articles')
+        user = self.context.get('view').request.user
         # THEN CREATE THE BILL OBJECT
-        bill= Bill.objects.create(**validated_data)
+        bill= Bill.objects.create(
+            **validated_data,
+            client = user
+        )
         
         # NOW ADD EACH CREATED ARTICLE TO THE BILL
         for article in articles :
