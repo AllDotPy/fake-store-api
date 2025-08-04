@@ -2,7 +2,10 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
-from apps.utils.models import TimeStampedUUIDModel
+from apps.utils.models import (
+    TimeStampedUUIDModel,
+    Media,
+)
 from apps.categories.models import (
     Category,
 )
@@ -43,3 +46,29 @@ class Product(TimeStampedUUIDModel):
     def get_id_prefix(self):
         ''' Return a specific ID prefix for Product Model Objects '''
         return 'PRD'
+
+
+####
+##      PRODUCTMEDIA MODEL
+#####
+class ProductMedia(Media):
+    """ Store product's medias """
+
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE,
+        related_name="medias"
+    )
+
+    class Meta:
+        """ Meta class for ProductMedia model """
+
+        verbose_name = _('ProductMedia')
+        verbose_name_plural = _('ProductMedias')
+        ordering = ['created']
+
+    def __str__(self):
+        return self.title
+
+    def get_id_prefix(self):
+        """ Returns a specific ID prefix for ProductMedia Model Objects """
+        return 'PDM'
