@@ -12,6 +12,9 @@ from apps.notifications.serializers import (
     NotificationSerializer,
 )
 from apps.utils.functions import get_object_or_None
+from core.exceptions import (
+    NotificationNotFoundError,
+)
 
 # Create your views here.
 
@@ -59,7 +62,7 @@ class NotificationViewSet(ModelViewSet):
         if self.action in ('list','mark_as_read'):
             self.permission_classes = [IsAuthenticated]
         return super().get_permissions()
-    
+
     @action(methods=['PUT'],detail=True)
     def mark_as_read(self,request,id):
         ''' Mark a notification object as read '''
@@ -84,15 +87,8 @@ class NotificationViewSet(ModelViewSet):
             )
             
         # NOTIFICATION DOES NOT EXIST!
-        return Response(
-            {
-                'status':'error',
-                'message':{
-                    'en': f'Notification With uuid {id} does not exist.',
-                    'fr': 'Aucun objet notification trouvé pour ces informations'
-                }
-            },
-            status = 404
+        raise NotificationNotFoundError(
+            details=f'Notification With uuid {id} does not exist.'
         )
     
 

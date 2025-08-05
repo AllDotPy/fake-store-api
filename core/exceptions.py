@@ -283,6 +283,52 @@ class ProductOutOfStockError(ProductError):
         )
 
 
+class CategoryError(BusinessLogicError):
+    """Base exception for all category-related errors."""
+    default_status_code = status.HTTP_400_BAD_REQUEST
+
+
+class CategoryNotFoundError(CategoryError):
+    """Raised when a category is not found."""
+    default_status_code = status.HTTP_404_NOT_FOUND
+    
+    def __init__(self, detail=None, **kwargs):
+        super().__init__(
+            detail=detail or _("Category not found"),
+            code="CATEGORY_NOT_FOUND",
+            **kwargs
+        )
+
+
+class NotificationError(BusinessLogicError):
+    """Base exception for all notification-related errors."""
+    default_status_code = status.HTTP_400_BAD_REQUEST
+
+
+class NotificationNotFoundError(NotificationError):
+    """Raised when a notification is not found."""
+    default_status_code = status.HTTP_404_NOT_FOUND
+    
+    def __init__(self, detail=None, **kwargs):
+        super().__init__(
+            detail=detail or _("Notification not found"),
+            code="NOTIFICATION_NOT_FOUND",
+            **kwargs
+        )
+
+
+class NotificationServiceError(NotificationError):
+    """Raised when notification service operations fail."""
+    default_status_code = status.HTTP_400_BAD_REQUEST
+    
+    def __init__(self, detail=None, **kwargs):
+        super().__init__(
+            detail=detail or _("Notification service error"),
+            code="NOTIFICATION_SERVICE_ERROR",
+            **kwargs
+        )
+
+
 class UserError(BusinessLogicError):
     """Base exception for all user-related errors."""
     default_status_code = status.HTTP_400_BAD_REQUEST
