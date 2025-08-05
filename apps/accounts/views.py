@@ -14,6 +14,9 @@ from apps.accounts.serializers import (
     UserSerializer, 
 )
 from apps.utils.functions import get_object_or_None
+from core.exceptions import (
+    UserNotFoundError,
+)
 
 # Create your views here.
 
@@ -85,15 +88,8 @@ class UserViewSet(ModelViewSet):
             )
             
         # USER OBJECT DOES NOT EXIST
-        return Response(
-            {
-                'status':'error',
-                'message':{
-                    'en': 'This user does not exist.',
-                    'fr': 'Cet utilisateur n\'existe pas.'
-                }
-            },
-            status = 404
+        raise UserNotFoundError(
+            details="This user does not exist."
         )
         
     @action(methods=['PUT'],detail=True)
@@ -120,15 +116,8 @@ class UserViewSet(ModelViewSet):
             )
             
         # USER OBJECT DOES NOT EXIST
-        return Response(
-            {
-                'status':'error',
-                'message':{
-                    'en': 'This user does not exist.',
-                    'fr': 'Cet utilisateur n\'existe pas.'
-                }
-            },
-            status = 404
+        raise UserNotFoundError(
+            details="This user does not exist."
         )
         
     @action(methods=['DELETE'],detail=True)
@@ -154,13 +143,6 @@ class UserViewSet(ModelViewSet):
             )
         
         # USER OBJECT DOES NOT EXIST
-        return Response(
-            {
-                'status':'error',
-                'message':{
-                    'en': 'This user does not exist.',
-                    'fr': 'Cet utilisateur n\'existe pas.'
-                }
-            },
-            status = 404
+        raise UserNotFoundError(
+            details="This user does not exist."
         )
