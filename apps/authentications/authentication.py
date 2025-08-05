@@ -20,6 +20,13 @@ from core.infobip import (
 from apps.authentications.models import (
     Otp
 )
+from core.exceptions import (
+    UserAuthenticationError,
+    UserNotFoundError,
+    TokenError,
+    DataValidationError,
+    ServiceUnavailableError
+)
 
 # GET USER MODEL FIRST
 USER = get_user_model()
@@ -112,14 +119,12 @@ class AuthenticationView(GenericViewSet):
                 )
             except Exception as e:
                 print(e)
-                return Response(
-                    {"message": "Failed to logout."}, 
-                    status=500
+                raise TokenError(
+                    details="Failed to logout."
                 )
         else:
-            return Response(
-                {"message": "No valid refresh token provided."}, 
-                status=400
+            raise UserAuthenticationError(
+                details="No valid refresh token provided."
             )
         
     def register(self, request):
@@ -170,21 +175,13 @@ class AuthenticationView(GenericViewSet):
                 )
             
             # INVALID PHONE NUMBER
-            return Response(
-                {
-                    'status':'error',
-                    'message':f'Error sending otp code.'
-                },
-                status = 400
+            raise ServiceUnavailableError(
+                details="Error sending otp code."
             )
             
         # USER DOESNOT EXISTS
-        return Response(
-            {
-                'status':'error',
-                'message':f'No such user exists with the uuid "{pk}".'
-            },
-            status = 404
+        raise UserNotFoundError(
+            details=f'No such user exists with the uuid "{pk}".'
         )
     
     def verify_code(self,request,pk):
@@ -225,30 +222,18 @@ class AuthenticationView(GenericViewSet):
                     )
                     
                 # CODE HAS EXPIRED
-                return Response(
-                    {
-                        'status':'error',
-                        'message':f'Invalid OTP code.',
-                    },
-                    status=401
+                raise UserAuthenticationError(
+                    details="Invalid OTP code."
                 )
                 
             # CODE IS NOT VALID
-            return Response(
-                {
-                    'status':'error',
-                    'message':f'Code has expired.',
-                },
-                status=400
+            raise DataValidationError(
+                details="Code has expired."
             )
             
         # USER DOESNOT EXISTS
-        return Response(
-            {
-                'status':'error',
-                'message':f'No such user exists with the uuid "{pk}".'
-            },
-            status=404
+        raise UserNotFoundError(
+            details=f'No such user exists with the uuid "{pk}".'
         )
         
     def verify_email_or_phone(self,request):
@@ -308,21 +293,13 @@ class AuthenticationView(GenericViewSet):
                 )
                 
             # WRONG PASSWORD
-            return Response(
-                {
-                    'status':'error',
-                    'message':'Wrong password.'
-                },
-                status = 401
+            raise UserAuthenticationError(
+                details="Wrong password."
             )
             
         # USER IS NOT AUTHENTICATED
-        return Response(
-            {
-                'status':'error',
-                'message':'you must be auuthenticated.'
-            },
-            status = 403
+        raise UserAuthenticationError(
+            details="You must be authenticated."
         )
         
     def check_phone_and_send_otp(self,request,phone):
@@ -342,12 +319,8 @@ class AuthenticationView(GenericViewSet):
             return self.send_otp(request,obj.id)
         
         # NO USER WITH PROVIDED PHONE NUMBRE FOUND
-        return Response(
-            {
-                'status':'error',
-                'message':f'No user with provided phone number "{phone}" found.'
-            },
-            status=404
+        raise UserNotFoundError(
+            details=f'No user with provided phone number "{phone}" found.'
         )
         
     def renew_password(self,request,pk):
@@ -377,10 +350,6 @@ class AuthenticationView(GenericViewSet):
             )
             
         # USER NOT FOUND
-        return Response(
-            {
-                'status':'error',
-                'message':f'User object with uuid "{pk}" does not exists.'
-            },
-            status = 404
+        raise UserNotFoundError(
+            details=f'User object with uuid "{pk}" does not exists.'
         )
