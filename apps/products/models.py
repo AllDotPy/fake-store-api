@@ -59,6 +59,7 @@ class ProductMedia(Media):
         related_name="medias"
     )
 
+    # META CLASS
     class Meta:
         """ Meta class for ProductMedia model """
 
@@ -72,3 +73,8 @@ class ProductMedia(Media):
     def get_id_prefix(self):
         """ Returns a specific ID prefix for ProductMedia Model Objects """
         return 'PDM'
+    
+    def get_upload_dir(self):
+        """Get Product Medias upload dir"""
+
+        return f'products/{self.product.name}/'
