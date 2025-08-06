@@ -1,12 +1,21 @@
 from django.contrib import admin
 
 from apps.products.models import (
-    Product
+    Product, ProductMedia
 )
 
 # Register your models here.
 
 LIMIT_PER_PAGE = 100
+
+
+#####
+##      GENERIC PRODUCT MEDIA IN LINE CLASS
+######
+class ProductMediaInline(admin.TabularInline):
+    ''' Inline class for Product Media Model Admin '''
+    model = ProductMedia
+    extra = 1
 
 
 ####
@@ -25,5 +34,8 @@ class ProductAdmin(admin.ModelAdmin):
     ]
     search_fields = [
         'code','name','description'
+    ]
+    inlines = [
+        ProductMediaInline
     ]
     list_per_page = LIMIT_PER_PAGE
