@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from apps.orders.models import (
-    Bill
+    Order
 )
 
 # Register your models here.
@@ -10,11 +10,11 @@ LIMIT_PER_PAGE = 100
 
 
 ####
-##      BILLS ADMIN SITE
+##      ORDERS ADMIN SITE
 #####
-@admin.register(Bill)
-class BillAdmin(admin.ModelAdmin):
-    ''' Admin site configs for Bills Model. '''
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    ''' Admin site configs for Orders Model. '''
     
     list_display = [
         'code','client','is_validated',
