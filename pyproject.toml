@@ -22,5 +22,6 @@ dependencies = [
     "pillow>=11.3.0",
     "py3-infobip>=0.0.4",
     "python-dotenv>=1.1.1",
+    "requests>=2.31.0",
     "simplejson>=3.20.1",
 ]
