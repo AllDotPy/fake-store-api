@@ -14,5 +14,8 @@ wheels/
 *.db
 *.sqlite3
 
+# Env file
+.env
+
 # VS Code
 .vscode
