@@ -15,7 +15,7 @@ from apps.accounts.models import (
 
 
 ####
-##      BILLING PRODUCTS MODEL
+##      ORDERING PRODUCTS MODEL
 #####
 class Article(TimeStampedUUIDModel):
     ''' Store information about Billing Articles. '''
@@ -30,7 +30,7 @@ class Article(TimeStampedUUIDModel):
     
     # META CLASS
     class Meta:
-        ''' Meta class for Billing Article Model '''
+        ''' Meta class for Ordering Article Model '''
         
         verbose_name = _('Article')
         verbose_name_plural = _('Articles')
@@ -52,10 +52,10 @@ class Article(TimeStampedUUIDModel):
     
     
 ####
-##      BILL MODEL
+##      ORDER MODEL
 #####
-class Bill(TimeStampedUUIDModel):
-    ''' Store information about Bill. '''
+class Order(TimeStampedUUIDModel):
+    ''' Store information about Order. '''
     
     articles = models.ManyToManyField(
         Article, related_name = 'bills'
@@ -70,10 +70,10 @@ class Bill(TimeStampedUUIDModel):
     
     # META CLASS
     class Meta:
-        ''' Meta class for Bill Model '''
+        ''' Meta class for Order Model '''
         
-        verbose_name = _('Bill')
-        verbose_name_plural = _('Bills')
+        verbose_name = _('Order')
+        verbose_name_plural = _('Orders')
         ordering = ['-created']
     
     def __str__(self):
@@ -82,7 +82,7 @@ class Bill(TimeStampedUUIDModel):
         
     def get_id_prefix(self):
         ''' Return a specific ID prefix for Articles Model Objects. '''
-        return 'BILL'
+        return 'ORDER'
     
     def total(self):
         ''' Return the bill total price. '''

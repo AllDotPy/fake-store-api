@@ -46,6 +46,11 @@ class TimeStampedUUIDModel(TimeStampedModel):
             self.code = self.generate_code()
 
 
+def upload_to(instance, filename):
+    '''Get File upload dir'''
+    return instance.get_upload_dir() + filename
+
+
 ####
 ##      ABSTRACT MEDIA MODEL
 #####
@@ -54,13 +59,17 @@ class Media(TimeStampedUUIDModel):
     
     title = models.CharField(max_length = 255,default = 'No title yet.')
     description = models.TextField(default = 'No Description Yet.')
-    file = models.FileField(upload_to = "medias")
+    file = models.FileField(upload_to = upload_to, max_length=3000)
     
     class Meta:
         abstract = True
         
     def get_id_prefix(self):
         return 'MED'
+    
+    def get_upload_dir(self):
+        '''Return upload dir based on object'''
+        return f''
 
 # class PrivateFileField(models.FileField):
 #     def __init__(

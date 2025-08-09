@@ -4,18 +4,18 @@ from rest_framework.permissions import (
 )
 
 from apps.orders.serializers import (
-    BillSerializer,
+    OrderSerializer,
 )
 
 
 ####
 ##      BILLS VIEWSET
 #####
-class BillViewSet(ModelViewSet):
+class OrderViewSet(ModelViewSet):
     ''' ViewSet class for Products Model. '''
     
-    queryset = BillSerializer.Meta.model.objects.all()
-    serializer_class = BillSerializer
+    queryset = OrderSerializer.Meta.model.objects.all()
+    serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = [
         'client','is_paid','is_validated'
