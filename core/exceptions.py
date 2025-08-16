@@ -254,6 +254,28 @@ class OrderValidationError(OrderError):
         )
 
 
+class TransactionNotFoundError(OrderError):
+    """Raised when an transaction is not found."""
+    default_status_code = status.HTTP_404_NOT_FOUND
+    
+    def __init__(self, detail=None, **kwargs):
+        super().__init__(
+            detail=detail or _("Transaction not found"),
+            code="TRANSACTION_NOT_FOUND",
+            **kwargs
+        )
+
+class TransactionValidationError(OrderError):
+    """Raised when transaction validation fails."""
+    default_status_code = status.HTTP_400_BAD_REQUEST
+    
+    def __init__(self, detail=None, **kwargs):
+        super().__init__(
+            detail=detail or _("Transaction validation failed"),
+            code="TRANSACTION_VALIDATION_ERROR",
+            **kwargs
+        )
+
 class ProductError(BusinessLogicError):
     """Base exception for all product-related errors."""
     default_status_code = status.HTTP_400_BAD_REQUEST
