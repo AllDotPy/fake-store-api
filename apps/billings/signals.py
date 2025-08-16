@@ -1,11 +1,13 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 import logging
+from asgiref.sync import sync_to_async, async_to_sync
 
-from apps.accounts.models import User, Student
+from apps.accounts.models import User
 from apps.billings.models import Transaction
 from apps.billings.services import PaymentService
 
+from apps.orders.models import Order
 from core.exceptions import (
     PaymentInitiationError,
     PaymentProcessingError,
@@ -17,66 +19,41 @@ logger = logging.getLogger(__name__)
 
 
 ####    CREATE TRANSACTION FOR ORDER
-def create_transaction_for_order(order, amount, payment_method=None):
-    ''' Create a Transaction for Order Payment. '''
-
-    transaction = Transaction.objects.create(
-        user=order.user,
-        order=order,
-        subject=Transaction.SUBJECTS.ORDER_PAYMENT,
-        amount=amount,
-        payment_method=payment_method,
-        description=f"Payment for order {order.code}"
-    )
-    return transaction
+# @receiver(post_save, sender=Order)
+# def create_transaction_for_order(sender, instance: Order, created, **kwargs):
+#     ''' Create a Transaction for Order Payment. '''
+    
+#     print("(create_transaction_for_order) instance =", instance)
+#     print("(create_transaction_for_order) instance =", instance.articles.all())
+    
+#     if created:
+#         transaction = Transaction.objects.create(
+#             user=instance.client,
+#             order=instance,
+#             type=Transaction.TYPES.PAYMENT,
+#             # amount=float(instance.total()),
+#             amount=100,
+#         )
+#         print("Created transaction:", transaction)
+        
+#         return transaction
 
 
 ## SEND TRANSACTION TO PROVIDER
-@receiver(post_save, sender=Transaction, weak=False)
+@receiver(post_save, sender=Transaction)
 def send_transaction_request(sender, instance: Transaction, created, **kwargs):
     ''' Send the newly created transaction to payment API and get checkout url. '''
     
     # OUR SIGNAL EVENT MUST BE A CREATE ACTION
     if created and instance.status == Transaction.STATUES.PENDING:
-        try:
-            logger.info(f"Processing transaction {instance.code} for user {instance.user.id}")
-            
-            # SEND TRANSACTION TO PROVIDER
-            response = PaymentService().create_transaction(
-                transaction=instance
-            )
-            
-            # CHECK FOR SUCCESS
-            if not response.has_error and response.json:
-                logger.info(f"Transaction {instance.code} created successfully with provider")
-                
-                # UPDATE TRANSACTION STATUS IF NEEDED
-                if response.json.get('status') == 'SUCCESS':
-                    instance.succeed()
-                    
-            else:
-                logger.error(f"Transaction creation failed: {response.get_message()}")
-                instance.fail()
-                
-        except PaymentValidationError as e:
-            logger.error(f"Payment validation error for transaction {instance.code}: {str(e)}")
-            instance.fail()
-            
-        except PaymentInitiationError as e:
-            logger.error(f"Payment initiation error for transaction {instance.code}: {str(e)}")
-            instance.fail()
-            
-        except PaymentProcessingError as e:
-            logger.error(f"Payment processing error for transaction {instance.code}: {str(e)}")
-            instance.fail()
-            
-        except Exception as e:
-            logger.error(f"Unexpected error processing transaction {instance.code}: {str(e)}")
-            instance.fail()
+        # SEND TRANSACTION TO PROVIDER
+        _ = PaymentService().create_transaction(
+            transaction=instance
+        )
 
 
 ## PROCESS ORDER PAYMENT SUCCESS
-@receiver(post_save, sender=Transaction, weak=False)
+@receiver(post_save, sender=Transaction)
 def process_order_payment_success(
     sender, instance: Transaction, 
     created, **kwargs
@@ -85,8 +62,8 @@ def process_order_payment_success(
     
     # CHECK IF TRANSACTION IS FOR ORDER AND SUCCESSFUL
     if (not created and 
-        instance.subject == Transaction.SUBJECTS.ORDER_PAYMENT and 
-        instance.status == Transaction.STATUES.SUCCESS and
+        instance.type == Transaction.TYPES.PAYMENT and 
+        instance.status == Transaction.STATUES.SUCCESSFUL and
         instance.order):
         
         try:
@@ -94,31 +71,10 @@ def process_order_payment_success(
             
             # UPDATE ORDER STATUS
             order = instance.order
-            order.status = 'PAID'  # Assuming Order model has status field
+            order.status = Order.OrderStatus.DELIVERING
             order.save()
             
             logger.info(f"Order {order.code} marked as paid successfully")
             
         except Exception as e:
             logger.error(f"Error processing order payment success: {str(e)}")
-
-
-## PROCESS SUBSCRIPTION TRANSACTION
-@receiver(post_save, sender=Transaction, weak=False)
-def process_subscription_transaction(
-    sender, instance: Transaction, 
-    created, **kwargs
-):
-    ''' Process subscription transaction. '''
-    
-    # OUR SIGNAL EVENT MUST BE A CREATE ACTION
-    if created and instance.subject == Transaction.SUBJECTS.SUBSCRIPTION:
-        try:
-            logger.info(f"Processing subscription transaction {instance.code}")
-            
-            # TODO: Implement subscription processing logic
-            logger.info(f"Subscription transaction {instance.code} processed successfully")
-            
-        except Exception as e:
-            logger.error(f"Error processing subscription: {str(e)}")
-            instance.fail()

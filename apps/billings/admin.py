@@ -15,11 +15,11 @@ class TransactionAdmin(admin.ModelAdmin):
     ''' Admin site configs for Transaction Model. '''
 
     list_display = (
-        'code','subject','type','amount',
-        'status'
+        'code','type','amount',
+        'status', 'payment_link', 'created', 'modified'
     )
     list_filter = (
-        'type','subject','status'
+        'type','status'
     )
     search_fields = (
         'code',

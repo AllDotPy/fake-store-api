@@ -1,9 +1,12 @@
-from django.db.models import Q, models
+import logging
+from django.db import models 
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import (
-    IsAuthenticated, IsAdminUser
+    IsAuthenticated, IsAdminUser, AllowAny
 )
 from rest_framework import status
 
@@ -19,13 +22,14 @@ from core.exceptions import (
     PaymentValidationError,
     PaymentProcessingError,
     PaymentRefundError,
-    TransactionNotFoundError
 )
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
 ####
-##      TRANSACTIONS VIEWSET
+##      BILLINGS VIEWSET
 #####
 class TransactionViewSet(ModelViewSet):
     ''' ViewSet class for Transaction Model. '''
@@ -34,7 +38,7 @@ class TransactionViewSet(ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated,]
     search_fields = [
-        'code', 'type', 'amount', 'subject', 'description'
+        'code', 'type', 'amount',
     ]
     lookup_field = 'id'
 
@@ -68,22 +72,24 @@ class TransactionViewSet(ModelViewSet):
 
         # FOR PAYMENT PROVIDER CALLBACKS
         if self.action in ['callback', 'verify']:
-            self.permission_classes = [IsPaymentApiProvider]
+            # self.permission_classes = [IsPaymentApiProvider]
+            return [AllowAny()]
+            pass
 
         return super().get_permissions()
 
     @action(methods=['GET'], detail=True)
-    def get_bill_url(self, request, id):
-        ''' Return payment transaction bill_url. '''
+    def get_payment_link(self, request, id):
+        ''' Return payment transaction payment_link. '''
 
         # GET OBJECT FIRST
         obj = self.get_object()
 
-        if obj and obj.bill_url:
+        if obj and obj.payment_link:
             # THEN RETURN TRANSACTION OBJECT'S BILL URL
             return Response(
                 {
-                    'bill_url': obj.get_bill_url()
+                    'payment_link': obj.get_payment_link()
                 },
                 status=200
             )
@@ -96,33 +102,35 @@ class TransactionViewSet(ModelViewSet):
             status=404
         )
 
-    @action(methods=['POST'], detail=True)
-    def callback(self, request, id):
+    @action(
+        methods=['POST'], 
+        detail=False, 
+        url_path="callback", 
+        url_name="callback",
+        authentication_classes=[], 
+        permission_classes=[]
+    )
+    @method_decorator(csrf_exempt)
+    def callback(self, request, *args, **kwargs):
         ''' Handle payment provider callback. '''
-
-        # GET TRANSACTION OBJECT FIRST
-        obj = self.get_object()
         
-        # GET REQUEST DATA
-        success = request.data.get('success', False)
-        transaction_id = request.data.get('transaction_id')
-        
-        if obj:
-            # UPDATE TRANSACTION STATUS
-            if success:
-                obj.succeed()
-            else:
-                obj.fail()
-                
-            # UPDATE PROVIDER REFERENCE IF PROVIDED
-            if transaction_id:
-                obj.set_provider_reference(transaction_id)
+        logger.info("Received payment provider callback")
+        logger.debug(f"Headers: {dict(request.headers)}")
+        logger.debug(f"Payload: {request.data}")
 
-        # RETURN RESPONSE
-        return Response(
-            {'status': 'OK'},
-            status=200
-        )
+        try:
+            webhook = PaymentService().process_webhook(
+                payload=request.data,
+                headers=request.headers
+            )
+            logger.info(f"Webhook processed successfully for transaction {getattr(webhook, 'transaction_id', 'N/A')}")
+            
+            return Response({'status': 'OK'}, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"Failed to process payment callback: {str(e)}", exc_info=True)
+        return Response({'status': 'ERROR', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
     @action(methods=['GET'], detail=True)
     def verify(self, request, id):

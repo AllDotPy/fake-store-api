@@ -1,135 +1,23 @@
-# from typing import Any, Dict, Literal
-# from easyswitch.types import TransactionStatus as EasySwitchTransactionStatus
-# from easyswitch import EasySwitch
-# from apps.billings.models import Transaction as T
-# from core.exceptions import (
-#     PaymentInitiationError,
-#     PaymentProcessingError,
-#     PaymentValidationError,
-#     PaymentMethodNotSupportedError,
-#     ServiceUnavailableError,
-#     ConfigurationError
-# )
-
-# ####
-# ##      SERVICE CLASS
-# #####
-# class PaymentService:
-#     ''' Payments service using EasySwitch. '''
-    
-#     def __init__(self):
-#         ''' Initialize Service. '''
-#         self._client = EasySwitch.from_env()
-    
-#     def create_transaction(self, transaction: T):
-#         """Crée une transaction avec EasySwitch."""
-#         try:
-#             # Data preparation according to the EasySwitch structure
-#             transaction_detail = transaction.to_easyswitch_format()
-            
-#             # Send payment with EasySwitch
-#             response = self._client.send_payment(transaction_detail)
-            
-#             # Response processing
-#             if response and hasattr(response, 'payment_link'):
-#                 transaction.set_payment_link(response.payment_link)
-                
-#                 # Status update based on response
-#                 if response.status:
-#                     internal_status = self.map_easyswitch_status_to_internal(response.status)
-#                     transaction.status = internal_status
-#                     transaction.save()
-                
-#                 return {
-#                     'success': True,
-#                     'transaction_id': response.transaction_id,
-#                     'payment_link': response.payment_link,
-#                     'status': response.status,
-#                     'raw_response': response.raw_response if hasattr(response, 'raw_response') else None,
-#                 }
-#             else:
-#                 raise PaymentProcessingError("Invalid response from EasySwitch")
-#         except Exception as e:
-#             transaction.fail()
-#             raise PaymentProcessingError(f"Failed to create transaction: {str(e)}")
- 
-#     def get_credentials(self):
-#         ''' Return Client auth credentials. '''
-    
-#     def get_providers(self):
-#         ''' Return a list of supported Aggregators. '''
-        
-#     def get_transactions(self):
-#         ''' Return a list of app transactions. '''
-        
-#     def retrieve_transaction(self, transaction_id):
-#         ''' Retrieve a specific transaction by id. '''
-        
-#     def create_transaction(self, transaction: T):
-#         ''' Creates a new transaction with payment provider. '''        
-
-#     def verify_transaction(self, transaction: T):
-#         ''' Verify transaction status with provider. '''
-    
-#     def refund_transaction(self, transaction: T):
-#         ''' Refund a transaction. '''
-        
-#     # --- MAPPING OF EASYSWITCH STATUS TO INTERNAL STATUS ---
-#     def map_easyswitch_status_to_internal(provider_status: [str, Literal]) -> Literal:
-#         ''' Map a EasySwitch status to an internal status. '''
-
-#         statues = {
-#             EasySwitchTransactionStatus.PENDING: T.STATUES.PENDING,
-#             EasySwitchTransactionStatus.SUCCESSFUL: T.STATUES.SUCCESSFUL,
-#             EasySwitchTransactionStatus.FAILED: T.STATUES.FAILED,
-#             EasySwitchTransactionStatus.ERROR: T.STATUES.FAILED,
-#             EasySwitchTransactionStatus.CANCELLED: T.STATUES.CANCELLED,
-#             EasySwitchTransactionStatus.REFUSED: T.STATUES.FAILED,
-#             EasySwitchTransactionStatus.DECLINED: T.STATUES.FAILED,
-#             EasySwitchTransactionStatus.EXPIRED: T.STATUES.FAILED,
-#             EasySwitchTransactionStatus.REFUNDED: T.STATUES.REFUNDED,
-#             EasySwitchTransactionStatus.PROCESSING: T.STATUES.PENDING,
-#             EasySwitchTransactionStatus.INITIATED: T.STATUES.PENDING,
-#             EasySwitchTransactionStatus.UNKNOWN: T.STATUES.FAILED,
-#             EasySwitchTransactionStatus.COMPLETED: T.STATUES.SUCCESSFUL,
-#             EasySwitchTransactionStatus.TRANSFERRED: T.STATUES.SUCCESSFUL,
-#         }
-
-#         if isinstance(provider_status, str):
-#             try:
-#                 provider_status = EasySwitchTransactionStatus[provider_status.lower()]
-#             except (KeyError, AttributeError):
-#                 raise PaymentValidationError(
-#                     details=f"Invalid status: {provider_status}"
-#                 )
-        
-#         return statues.get(provider_status) or None
-
-
+import asyncio
 import logging
-from typing import Any, Dict, List, Literal, Optional, Union
-from decimal import Decimal
-
+from typing import Any, Dict, Optional, Union
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-
 from easyswitch.types import TransactionStatus as EasySwitchTransactionStatus
 from easyswitch import (
     EasySwitch, 
     TransactionDetail, 
-    PaymentResponse,
+    Provider,
+    WebhookEvent,
 )
 
 from apps.billings.models import Transaction as T
 from core.exceptions import (
-    PaymentInitiationError,
     PaymentProcessingError,
     PaymentValidationError,
-    PaymentMethodNotSupportedError,
-    ServiceUnavailableError,
+    PaymentWebhookError,
     ConfigurationError,
-    PaymentRefundError
+    TransactionNotFoundError
 )
 
 logger = logging.getLogger(__name__)
@@ -142,11 +30,10 @@ class PaymentService:
     This service handles all payment-related operations including:
     - Transaction creation and processing
     - Payment status verification
-    - Refund operations
     - Provider integration management
     """
     
-    def __init__(self, client: Optional[EasySwitch] = None):
+    def __init__(self, client=None):
         """
         Initialize the payment service.
         
@@ -154,27 +41,53 @@ class PaymentService:
             client: Optional EasySwitch client instance for testing
         """
         try:
-            self._client = client or EasySwitch.from_env()
+            env_file = settings.BASE_DIR / '.env'
+            self._client = client or self._get_client(env_file)
+            
             self._validate_client_configuration()
         except Exception as e:
             logger.error(f"Failed to initialize EasySwitch client: {str(e)}")
             raise ConfigurationError(
-                detail="Payment service configuration failed",
-                details=f"EasySwitch client initialization error: {str(e)}"
+                detail=f"Payment service configuration failed. EasySwitch client initialization error: {str(e)}",
             )
+
+    def _get_client(self, env_file: str=None):
+        config = {
+            "debug": True,
+            "providers": {
+                Provider.FEDAPAY: {
+                    "api_secret": settings.EASYSWITCH_FEDAPAY_SECRET_KEY,
+                    "callback_url": settings.EASYSWITCH_FEDAPAY_CALLBACK_URL,
+                    "timeout": 60,
+                    "environment": settings.EASYSWITCH_ENVIRONMENT,
+                    "extra": {
+                        "webhook_secret": settings.EASYSWITCH_FEDAPAY_WEBHOOK_SECRET,
+                    }
+                }
+            }
+        }
+        
+        client = EasySwitch.from_dict(config)
+        
+        # if env_file:
+        #     client = EasySwitch.from_env(env_file)
+        
+        client = client._get_integrator(Provider[str(settings.EASYSWITCH_DEFAULT_PROVIDER).upper()])
+
+        return client
     
     def _validate_client_configuration(self) -> None:
         """Validate that the EasySwitch client is properly configured."""
         if not self._client:
+            error = "Payment service not properly configured. EasySwitch client is not initialized."
+            logger.error(error)
             raise ConfigurationError(
-                detail="Payment service not properly configured",
-                details="EasySwitch client is not initialized"
+                detail=error
             )
         
-        # Add additional validation as needed
         logger.info("Payment service initialized successfully")
     
-    def create_transaction(self, transaction: T) -> Dict[str, Any]:
+    def create_transaction(self, transaction: T) -> T:
         """
         Create a new payment transaction with the provider.
         
@@ -199,12 +112,13 @@ class PaymentService:
             transaction_detail = transaction.to_easyswitch_format()
             
             # Send payment request to provider
-            response = self._send_payment_request(transaction_detail)
-            
+            response = self._send_payment_request(transaction_detail) 
+                        
             # Process provider response
             result = self._process_payment_response(transaction, response)
             
             logger.info(f"Transaction {transaction.code} created successfully")
+            
             return result
             
         except PaymentValidationError:
@@ -216,11 +130,12 @@ class PaymentService:
             transaction.fail()
             raise
         except Exception as e:
-            logger.error(f"Unexpected error creating transaction {transaction.code}: {str(e)}")
+            error_message = f"Unexpected error creating transaction {transaction.code}: {str(e)}"
+            logger.error(error_message)
             transaction.fail()
+            
             raise PaymentProcessingError(
-                detail="Failed to create transaction",
-                details=f"Unexpected error: {str(e)}"
+                detail=error_message
             )
     
     def _validate_transaction(self, transaction: T) -> None:
@@ -234,10 +149,7 @@ class PaymentService:
             PaymentValidationError: If validation fails
         """
         errors = []
-        
-        if not transaction.user:
-            errors.append("Transaction must have a valid user")
-        
+                
         if not transaction.amount or transaction.amount <= 0:
             errors.append("Transaction amount must be greater than 0")
         
@@ -252,8 +164,7 @@ class PaymentService:
         
         if errors:
             raise PaymentValidationError(
-                detail="Transaction validation failed",
-                details="; ".join(errors)
+                detail="Transaction validation failed; ".join(errors),
             )
     
     def _send_payment_request(self, transaction_detail: TransactionDetail) -> Any:
@@ -270,22 +181,27 @@ class PaymentService:
             PaymentProcessingError: If request fails
             ServiceUnavailableError: If service is unavailable
         """
+          
         try:
-            response = self._client.send_payment(transaction_detail)
-            
+            response = asyncio.run(self._client.send_payment(transaction_detail))
+
             if not response:
-                raise PaymentProcessingError("No response received from payment provider")
+                error_message = f"No response received from payment provider"
+                logger.error(error_message)
+                
+                raise PaymentProcessingError(error_message)
             
             return response
             
         except Exception as e:
-            logger.error(f"Payment request failed: {str(e)}")
+            error_message = f"Failed to send payment request. Provider error: {str(e)}"
+            logger.error(error_message)
+            
             raise PaymentProcessingError(
-                detail="Failed to send payment request",
-                details=f"Provider error: {str(e)}"
+                detail=error_message
             )
     
-    def _process_payment_response(self, transaction: T, response: Any) -> Dict[str, Any]:
+    def _process_payment_response(self, transaction: T, response: Any) -> T:
         """
         Process the payment provider response.
         
@@ -300,324 +216,121 @@ class PaymentService:
             PaymentProcessingError: If response processing fails
         """
         try:
-            if not hasattr(response, 'payment_link'):
+            if not (hasattr(response, 'payment_link') and hasattr(response, 'status') and hasattr(response, 'reference')):
+                logger.error(f"Invalid response from payment provider")
                 raise PaymentProcessingError("Invalid response from payment provider")
             
-            # Update transaction with payment link
-            transaction.set_payment_link(response.payment_link)
+            # Update transaction
+            transaction.payment_link = response.payment_link
+            transaction.reference = response.reference
             
-            # Update transaction status based on response
-            if hasattr(response, 'status') and response.status:
-                internal_status = self.map_easyswitch_status_to_internal(response.status)
-                if internal_status:
-                    transaction.status = internal_status
-                    transaction.save()
+            internal_status = self.map_easyswitch_status_to_internal(response.status)
+            if internal_status:
+                transaction.status = internal_status
             
-            return {
-                'success': True,
-                'transaction_id': getattr(response, 'transaction_id', None),
-                'payment_link': response.payment_link,
-                'status': getattr(response, 'status', None),
-                'raw_response': getattr(response, 'raw_response', None),
-            }
+            transaction.save()
+
+            return transaction
             
         except Exception as e:
             logger.error(f"Failed to process payment response: {str(e)}")
             raise PaymentProcessingError(
-                detail="Failed to process payment response",
-                details=f"Response processing error: {str(e)}"
+                detail=f"Failed to process payment response. Response processing error: {str(e)}",
             )
     
-    def get_credentials(self) -> Dict[str, Any]:
+    def process_webhook(self, payload: Dict[str, Any], headers: Dict[str, Any]) -> WebhookEvent:
         """
-        Get client authentication credentials.
-        
-        Returns:
-            Dictionary containing credential information
-        """
-        try:
-            # This should return non-sensitive credential information
-            # for debugging or validation purposes
-            return {
-                'provider': 'EasySwitch',
-                'configured': bool(self._client),
-                'environment': getattr(settings, 'EASYSWITCH_ENVIRONMENT', 'unknown')
-            }
-        except Exception as e:
-            logger.error(f"Failed to get credentials: {str(e)}")
-            raise ConfigurationError(
-                detail="Failed to retrieve credentials",
-                details=str(e)
-            )
-    
-    def get_providers(self) -> List[Dict[str, Any]]:
-        """
-        Get list of supported payment providers.
-        
-        Returns:
-            List of available payment providers
-        """
-        try:
-            # Return supported providers based on EasySwitch configuration
-            providers = [
-                {
-                    'code': 'SEMOA',
-                    'name': 'SEMOA',
-                    'supported': True,
-                    'currencies': ['XOF', 'XAF']
-                },
-                {
-                    'code': 'BIZAO',
-                    'name': 'BIZAO',
-                    'supported': True,
-                    'currencies': ['XOF', 'XAF', 'NGN', 'GHS']
-                },
-                {
-                    'code': 'CINEPAY',
-                    'name': 'CINEPAY',
-                    'supported': True,
-                    'currencies': ['XOF', 'XAF', 'NGN', 'GHS', 'EUR', 'USD']
-                },
-                {
-                    'code': 'PAYGATE',
-                    'name': 'PAYGATE',
-                    'supported': True,
-                    'currencies': ['XOF', 'XAF', 'NGN', 'GHS', 'EUR', 'USD']
-                },
-                {
-                    'code': 'FEDAPAY',
-                    'name': 'FEDAPAY',
-                    'supported': True,
-                    'currencies': ['XOF', 'XAF', 'NGN', 'GHS', 'EUR', 'USD']
-                }
-            ]
-            
-            return providers
-            
-        except Exception as e:
-            logger.error(f"Failed to get providers: {str(e)}")
-            raise ServiceUnavailableError(
-                detail="Failed to retrieve payment providers",
-                details=str(e)
-            )
-    
-    def get_transactions(self, user_id: Optional[int] = None, 
-                        status: Optional[str] = None,
-                        limit: int = 100) -> List[T]:
-        """
-        Get list of transactions with optional filtering.
-        
+        Process incoming webhook data from the payment provider.
+                
         Args:
-            user_id: Filter by user ID
-            status: Filter by transaction status
-            limit: Maximum number of transactions to return
-            
+            payload: The data received from the payment provider webhook.
+            headers: The headers received with the webhook request.
+
         Returns:
-            List of transaction instances
+            WebhookEvent: The parsed webhook event from the payment provider.
+
+        Raises:
+            PaymentWebhookError: If the webhook parsing fails.
+            TransactionNotFoundError: If the related transaction is not found.
+            Exception: For any other unexpected errors.
         """
         try:
-            queryset = T.objects.all()
-            
-            if user_id:
-                queryset = queryset.filter(user_id=user_id)
-            
-            if status:
-                queryset = queryset.filter(status=status)
-            
-            transactions = queryset.order_by('-created')[:limit]
-            
-            logger.info(f"Retrieved {len(transactions)} transactions")
-            return list(transactions)
-            
-        except Exception as e:
-            logger.error(f"Failed to get transactions: {str(e)}")
-            raise ServiceUnavailableError(
-                detail="Failed to retrieve transactions",
-                details=str(e)
+            # Parse webhook payload (async call)
+            webhook_data: WebhookEvent = asyncio.run(
+                self._client.parse_webhook(payload, headers)
             )
-    
-    def retrieve_transaction(self, transaction_id: str) -> Optional[T]:
-        """
-        Retrieve a specific transaction by ID.
-        
-        Args:
-            transaction_id: Transaction ID to retrieve
+            logger.info(f"(process_webhook) Webhook data parsed: {webhook_data}")
+
+            # Extract local transaction code safely
+            metadata = webhook_data.metadata
+            custom_metadata = metadata.get("custom_metadata", {})
+            local_transaction_code = custom_metadata.get("Transaction", None)
             
-        Returns:
-            Transaction instance or None if not found
-        """
-        try:
-            transaction = T.objects.filter(code=transaction_id).first()
+            if not local_transaction_code:
+                error = "Missing transaction description in webhook payload."
+                logger.error(error)
+                raise PaymentWebhookError(error)
+        
+            transaction = T.objects.get(code=local_transaction_code)
             
             if not transaction:
-                logger.warning(f"Transaction {transaction_id} not found")
-                return None
+                error = f"Transaction not found: {str(e)}"
+                logger.error(error)
+                raise TransactionNotFoundError(error)
             
-            logger.info(f"Retrieved transaction {transaction_id}")
-            return transaction
-            
-        except Exception as e:
-            logger.error(f"Failed to retrieve transaction {transaction_id}: {str(e)}")
-            raise ServiceUnavailableError(
-                detail="Failed to retrieve transaction",
-                details=str(e)
+            self._call_process_webhook_functions(
+                suffix=webhook_data.provider,
+                webhook_data=webhook_data,
+                transaction=transaction
             )
-    
-    def verify_transaction(self, transaction: T) -> Dict[str, Any]:
-        """
-        Verify transaction status with the payment provider.
+
+            # # Process according to provider
+            # if transaction and webhook_data.provider == "fedapay":
+            #     self._process_fedapay_webhook(webhook_data, transaction)
+
+            return webhook_data
         
-        Args:
-            transaction: Transaction to verify
-            
-        Returns:
-            Verification result with updated status
-        """
-        try:
-            logger.info(f"Verifying transaction {transaction.code}")
-            
-            # Query provider for current transaction status
-            provider_status = self._query_provider_status(transaction)
-            
-            # Map provider status to internal status
-            internal_status = self.map_easyswitch_status_to_internal(provider_status)
-            
-            # Update transaction status if changed
-            if internal_status and internal_status != transaction.status:
-                transaction.status = internal_status
-                transaction.save()
-                logger.info(f"Transaction {transaction.code} status updated to {internal_status}")
-            
-            return {
-                'success': True,
-                'transaction_id': transaction.code,
-                'current_status': transaction.status,
-                'provider_status': provider_status,
-                'verified_at': transaction.updated
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to verify transaction {transaction.code}: {str(e)}")
-            raise PaymentProcessingError(
-                detail="Failed to verify transaction",
-                details=str(e)
-            )
-    
-    def _query_provider_status(self, transaction: T) -> str:
-        """
-        Query the payment provider for current transaction status.
-        
-        Args:
-            transaction: Transaction to query
-            
-        Returns:
-            Provider status string
-        """
-        try:
-            # This would typically call the provider's API
-            # For now, we'll simulate the response
-            # In a real implementation, you would call:
-            # response = self._client.get_transaction_status(transaction.code)
-            
-            # Simulated response - replace with actual provider call
-            return transaction.status
-            
-        except Exception as e:
-            logger.error(f"Failed to query provider status: {str(e)}")
-            raise PaymentProcessingError(
-                detail="Failed to query transaction status",
-                details=str(e)
-            )
-    
-    def refund_transaction(self, transaction: T, amount: Optional[Decimal] = None) -> Dict[str, Any]:
-        """
-        Refund a transaction.
-        
-        Args:
-            transaction: Transaction to refund
-            amount: Amount to refund (if None, refunds full amount)
-            
-        Returns:
-            Refund result
-            
-        Raises:
-            PaymentRefundError: If refund fails
-            PaymentValidationError: If transaction cannot be refunded
-        """
-        try:
-            logger.info(f"Processing refund for transaction {transaction.code}")
-            
-            # Validate transaction can be refunded
-            if not transaction.can_refund():
-                raise PaymentValidationError(
-                    detail="Transaction cannot be refunded",
-                    details="Only successful transactions can be refunded"
-                )
-            
-            # Determine refund amount
-            refund_amount = amount or transaction.amount
-            
-            if refund_amount > transaction.amount:
-                raise PaymentValidationError(
-                    detail="Invalid refund amount",
-                    details="Refund amount cannot exceed original transaction amount"
-                )
-            
-            # Process refund with provider
-            refund_result = self._process_refund_with_provider(transaction, refund_amount)
-            
-            # Update transaction status
-            if refund_result.get('success'):
-                transaction.status = T.STATUES.REFUNDED
-                transaction.save()
-                logger.info(f"Transaction {transaction.code} refunded successfully")
-            
-            return refund_result
-            
-        except PaymentValidationError:
-            logger.error(f"Refund validation failed for transaction {transaction.code}")
+        except PaymentWebhookError as e:
+            logger.error(f"Payment provider webhook error: {e}")
+            raise
+        except TransactionNotFoundError as e:
+            logger.error(f"Transaction not found: {e}")
             raise
         except Exception as e:
-            logger.error(f"Failed to refund transaction {transaction.code}: {str(e)}")
-            raise PaymentRefundError(
-                detail="Failed to process refund",
-                details=str(e)
-            )
+            logger.exception(f"Unexpected error while processing webhook: {e}")
+            raise
     
-    def _process_refund_with_provider(self, transaction: T, amount: Decimal) -> Dict[str, Any]:
+    def _call_process_webhook_functions(self, suffix, **kwargs):
         """
-        Process refund with the payment provider.
-        
+        call the appropriate webhook process function
         Args:
-            transaction: Transaction to refund
-            amount: Amount to refund
-            
-        Returns:
-            Refund result from provider
+            suffix (str): The provider name
         """
-        try:
-            # This would typically call the provider's refund API
-            # For now, we'll simulate the response
-            # In a real implementation, you would call:
-            # response = self._client.refund_transaction(transaction.code, amount)
-            
-            # Simulated successful refund response
-            return {
-                'success': True,
-                'refund_id': f"REF_{transaction.code}",
-                'amount': float(amount),
-                'currency': transaction.currency,
-                'status': 'REFUNDED',
-                'processed_at': transaction.updated
-            }
-            
-        except Exception as e:
-            logger.error(f"Provider refund failed: {str(e)}")
-            raise PaymentRefundError(
-                detail="Failed to process refund with provider",
-                details=str(e)
-            )
-    
+        function_name = '_process_' + suffix + '_webhook'
+
+        # CHECK IF A FUNCTION "function_name" EXISTS AND IS CALLABLE
+        if hasattr(self, function_name) and callable(getattr(self, function_name)):
+            # THEN CALL IT WITH ARGUMENT
+            getattr(self, function_name)(**kwargs)
+
+        # RAISE EXCEPTION ELSE
+        else:
+            error = f'No member named _process_{suffix}_webhook or invalid webhook process type.'
+            logger.error(error)
+            raise PaymentWebhookError(error)
+
+    def _process_fedapay_webhook(self, webhook_data: WebhookEvent, transaction: T) -> None:
+        """
+        Process Fedapay-specific webhook data.
+
+        Args:
+            webhook_data: The parsed webhook data.
+            transaction: The transaction associated with the webhook.
+        """        
+        if webhook_data.status != transaction.status:
+            transaction.status = self.get_internal_status_from_provider(webhook_data.status)
+            transaction.save()
+
     # --- EASYSWITCH STATUS MAPPING ---
     
     def map_easyswitch_status_to_internal(self, provider_status: Union[str, EasySwitchTransactionStatus]) -> Optional[str]:
@@ -673,33 +386,3 @@ class PaymentService:
             Internal status string
         """
         return self.map_easyswitch_status_to_internal(provider_status) or T.STATUES.FAILED
-    
-    # --- UTILITY METHODS ---
-    
-    def is_service_available(self) -> bool:
-        """
-        Check if the payment service is available.
-        
-        Returns:
-            True if service is available, False otherwise
-        """
-        try:
-            # Simple health check
-            return bool(self._client)
-        except Exception:
-            return False
-    
-    def get_service_info(self) -> Dict[str, Any]:
-        """
-        Get payment service information.
-        
-        Returns:
-            Service information dictionary
-        """
-        return {
-            'service_name': 'PaymentService',
-            'provider': 'EasySwitch',
-            'available': self.is_service_available(),
-            'supported_providers': len(self.get_providers()),
-            'environment': getattr(settings, 'EASYSWITCH_ENVIRONMENT', 'unknown')
-        }

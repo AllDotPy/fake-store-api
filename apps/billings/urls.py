@@ -8,9 +8,9 @@ from apps.billings.views import (
 # INSTANCIATE DEFAULT ROUTER
 router = routers.DefaultRouter(trailing_slash = False)
 
-# TRANSACTIONS URLS
+# BILLINGS URLS
 router.register(
-    'transactions', TransactionViewSet
+    '', TransactionViewSet
 )
 
 urlpatterns = router.urls

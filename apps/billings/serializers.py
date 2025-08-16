@@ -20,11 +20,12 @@ class TransactionSerializer(serializers.ModelSerializer):
 
         model = Transaction
         fields = [
-            'id', 'code', 'user', 'user_id', 'subject', 'type', 
-            'status', 'amount', 'bill_url', 'provider_reference',
-            'description', 'created', 'updated'
+            'id', 'code', 
+            'user', 'user_id', 'type', 
+            'status', 'amount', 'payment_link', 'reference',
+            'created', 'modified'
         ]
-        read_only_fields = ['id', 'code', 'bill_url', 'provider_reference', 'created', 'updated']
+        read_only_fields = ['id', 'code', 'payment_link', 'reference', 'created', 'modified']
 
     def to_representation(self, instance: Transaction):
         ''' Override representation method to add custom fields. '''
@@ -34,7 +35,6 @@ class TransactionSerializer(serializers.ModelSerializer):
         
         # ADD CUSTOM FIELDS
         rep['status_display'] = instance.get_status_display()
-        rep['subject_display'] = instance.get_subject_display()
         rep['type_display'] = instance.get_type_display()
         
         return rep
@@ -48,7 +48,7 @@ class TransactionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = [
-            'user_id', 'subject', 'type', 'amount', 'description'
+            'user_id', 'type', 'amount',
         ]
     
     def validate_amount(self, value):
@@ -80,5 +80,5 @@ class TransactionUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Transaction
-        fields = ['status', 'description']
+        fields = ['status']
         read_only_fields = ['status']  # Status should be updated via business logic 

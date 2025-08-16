@@ -18,6 +18,9 @@ wheels/
 .env
 
 # VS Code
-.vscode
+.vscode/
 
 **medias/
+
+# Logs
+*.log

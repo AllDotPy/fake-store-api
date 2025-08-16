@@ -1,3 +1,4 @@
+import time, random
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
@@ -7,9 +8,12 @@ from easyswitch import (
     TransactionStatus, Currency, TransactionType
 )
 
+from apps.orders.models import Order
 from apps.utils.models import TimeStampedUUIDModel
 from apps.accounts.models import User
 from core.exceptions import PaymentInitiationError
+
+# from apps.utils.functions import get_host_url
 
 # Create your models here.
     
@@ -23,11 +27,11 @@ class Transaction(TimeStampedUUIDModel):
     class STATUES(models.TextChoices):
         ''' Transaction statues. '''
 
-        PENDING = 'PENDING', _('PENDING')
-        SUCCESSFUL = 'SUCCESSFUL', _('SUCCESSFUL')
-        FAILED = 'FAILED', _('FAILED')
-        CANCELLED = 'CANCELLED', _('CANCELLED')
-        REFUNDED = 'REFUNDED', _('REFUNDED')
+        PENDING = 'pending', _('PENDING')
+        SUCCESSFUL = 'successful', _('SUCCESSFUL')
+        FAILED = 'failed', _('FAILED')
+        CANCELLED = 'cancelled', _('CANCELLED')
+        REFUNDED = 'refunded', _('REFUNDED')
     
     # CURRENCIES
     class CURRENCIES(models.TextChoices):
@@ -49,7 +53,7 @@ class Transaction(TimeStampedUUIDModel):
 
         SEMOA = 'SEMOA', _('SEMOA')
         BIZAO = 'BIZAO', _('BIZAO')
-        CINEPAY = 'CINEPAY', _('CINEPAY')
+        CINETPAY = 'CINETPAY', _('CINETPAY')
         PAYGATE = 'PAYGATE', _('PAYGATE')
         FEDAPAY = 'FEDAPAY', _('FEDAPAY')
     
@@ -57,8 +61,8 @@ class Transaction(TimeStampedUUIDModel):
     class TYPES(models.TextChoices):
         ''' Transaction types. '''
 
-        PAYMENT = 'PAYMENT',_('PAYMENT')
-        REFUND = 'REFUND',_('REFUND')
+        PAYMENT = 'payment',_('PAYMENT')
+        REFUND = 'refund',_('REFUND')
         
     # RELATIONSHIPS
     user = models.ForeignKey(
@@ -68,10 +72,10 @@ class Transaction(TimeStampedUUIDModel):
         verbose_name=_("User")
     )
     
-    # ORDER RELATIONSHIP (for shop)
+    # ORDER RELATIONSHIP (for store)
     order = models.ForeignKey(
-        'orders.Order',
-        on_delete=models.SET_NULL,
+        Order,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='transactions',
@@ -79,38 +83,41 @@ class Transaction(TimeStampedUUIDModel):
     )
     
     status = models.CharField(
-        max_length = 100, 
-        choices = STATUES.choices,
-        default = STATUES.PENDING
+        max_length=100, 
+        choices=STATUES.choices,
+        default=STATUES.PENDING
     )
-    amount = models.DecimalField(max_digits = 10, decimal_places = 2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(
-        max_length = 25,
-        choices = CURRENCIES.choices,
+        max_length=25,
+        choices=CURRENCIES.choices,
         default=settings.EASYSWITCH_CURRENCY
     )
     provider = models.CharField(
-        max_length = 100,
-        choices = PROVIDERS.choices,
+        max_length=100,
+        choices=PROVIDERS.choices,
+        default=PROVIDERS[str(settings.EASYSWITCH_DEFAULT_PROVIDER).upper()]
     )
     type = models.CharField(
-        max_length = 100,
-        choices = TYPES.choices,
+        max_length=100,
+        choices=TYPES.choices,
+        default=TYPES.PAYMENT
     )
     payment_link = models.URLField(
-        _("Payment URL"),
-        blank = True, null = True
+        verbose_name=_("Payment URL"),
+        blank=True, null=True,
     )
-    description = models.TextField(
-        blank = True, null = True,
-        verbose_name=_("Description")
+    reference = models.CharField(
+        max_length=100,
+        blank=True,
     )
+    is_called_back = models.BooleanField(default=False)
     
     # PAYMENT METHOD
     payment_method = models.CharField(
-        max_length = 50,
-        blank = True, null = True,
-        verbose_name=_("Payment Method")
+        verbose_name=_("Payment Method"),
+        max_length=50,
+        blank=True, null=True,
     )
 
     # META CLASS
@@ -136,16 +143,31 @@ class Transaction(TimeStampedUUIDModel):
         ''' Update transaction payment_link '''
         self.payment_link = url
         self.save()
+    
+    def set_statuse(self, status):
+        ''' Update transaction status '''
+        self.status = status
+        self.save()
+    
+    def set_reference(self, reference):
+        ''' Update transaction reference '''
+        self.reference = reference
+        self.save()
 
     def get_payment_link(self):
         ''' Return payment_link. '''
         ''' Can implement custom logics here before returning payment_link. '''
 
         return self.payment_link
+    
+    def get_reference(self):
+        ''' Return reference '''
+        
+        return self.reference
 
-    def set_provider(self, reference):
+    def set_provider(self, provider):
         ''' Set provider reference. '''
-        self.provider_reference = reference
+        self.provider = provider
         self.save()
     
     def succeed(self):
@@ -165,8 +187,10 @@ class Transaction(TimeStampedUUIDModel):
 
     def get_callback_url(self):
         ''' Return callback URL for payment provider. '''
-        # TODO: Implement callback URL logic
-        return f"/api/billings/callback/{self.code}/"
+        
+        # callback_url = f"{settings.EASYSWITCH_FEDAPAY_CALLBACK_URL}?id={self.id}/callback"
+        callback_url = f"{settings.EASYSWITCH_FEDAPAY_CALLBACK_URL}callback"
+        return callback_url
         
     def is_paid(self):
         ''' Check if transaction is paid. '''
@@ -182,16 +206,16 @@ class Transaction(TimeStampedUUIDModel):
 
         return CustomerInfo(
             phone_number=str(self.user.phone_number),
-            first_name=self.user.first_name if self.user.first_name else None,
-            last_name=self.user.last_name if self.user.last_name else None,
-            email=self.user.email if self.user.email else None,
-            address=getattr(self.user, 'address', None),
-            city=getattr(self.user, 'city', None),
-            country=getattr(self.user, 'country', None),
-            postal_code=getattr(self.user, 'postal_code', None),
-            zip_code=getattr(self.user, 'zip_code', None),
-            state=getattr(self.user, 'state', None),
-            id=str(self.user.id),
+            first_name=self.user.first_name,
+            last_name=self.user.last_name,
+            # email=self.user.email if self.user.email else '', # FedaPay doesn't support many customer with same email
+            # address=getattr(self.user, 'address', ''),
+            # city=getattr(self.user, 'city', ''),
+            # country=getattr(self.user, 'country', ''),
+            # postal_code=getattr(self.user, 'postal_code', ''),
+            # zip_code=getattr(self.user, 'zip_code', ''),
+            # state=getattr(self.user, 'state', ''),
+            # id=str(self.user.id),
         )
     
     def to_easyswitch_transaction_detail(self) -> TransactionDetail:
@@ -202,12 +226,15 @@ class Transaction(TimeStampedUUIDModel):
             provider=Provider(self.provider),
             status=TransactionStatus(self.status),
             currency=Currency(self.currency),
-            amount=float(self.amount),
+            amount=int(self.amount),
             transaction_type=TransactionType(self.type),
-            reason=self.description or f'Payment for transaction {self.code}',
             callback_url=self.get_callback_url(),
-            reference=self.code,  # ou une référence personnalisée
+            reference=self.code,
             customer=self.to_easyswitch_customer_info(),
+            reason=f"Payment for order",
+            metadata={
+                "Transaction": str(self.code)
+            }
         )
     
     def to_easyswitch_format(self) -> TransactionDetail:
@@ -236,3 +263,10 @@ class Transaction(TimeStampedUUIDModel):
             raise PaymentInitiationError(f"Transaction validation failed: {'; '.join(errors)}")
         
         return True
+
+    def generate_code(self):
+        """ Generate unique code for Transaction. """
+        
+        timestamp = int(time.time())  # seconds since 1970 (10 digits in 2025)
+        rand = random.randint(10, 99) # 2 random numbers
+        return int(f"{timestamp}{rand}") % (10**11)  # truncate to 11 digits
