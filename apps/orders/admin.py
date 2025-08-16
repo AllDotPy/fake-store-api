@@ -17,11 +17,11 @@ class OrderAdmin(admin.ModelAdmin):
     ''' Admin site configs for Orders Model. '''
     
     list_display = [
-        'code','client','is_validated',
-        'is_paid','created'
+        'code','client',
+        'status','created'
     ]
     list_filter = [
-        'is_validated','is_paid',
+        'status',
     ]
     search_fields = [
         'code','client','articles'

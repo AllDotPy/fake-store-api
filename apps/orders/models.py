@@ -15,11 +15,63 @@ from apps.accounts.models import (
 
 
 ####
+##      ORDER MODEL
+#####
+class Order(TimeStampedUUIDModel):
+    ''' Store information about Order. '''
+    
+    class OrderStatus(models.TextChoices):
+        ''' Transaction statues. '''
+
+        WAITING_FOR_PAYMENT = 'waiting', _('WAITING FOR PAYMENT')
+        DELIVERING = 'delivering', _('DELIVERING')
+        COMPLETED = 'completed', _('COMPLETED')
+    
+    client = models.ForeignKey(
+        User, on_delete = models.CASCADE,
+        null = False, blank = False,
+        related_name = 'orders'
+    )
+    status = models.CharField(
+        max_length=100, 
+        choices=OrderStatus.choices,
+        default=OrderStatus.WAITING_FOR_PAYMENT
+    )
+    
+    # META CLASS
+    class Meta:
+        ''' Meta class for Order Model '''
+        
+        verbose_name = _('Order')
+        verbose_name_plural = _('Orders')
+        ordering = ['-created']
+    
+    def __str__(self):
+        return self.code
+    
+        
+    def get_id_prefix(self):
+        ''' Return a specific ID prefix for Articles Model Objects. '''
+        return 'ORDER'
+    
+    def total(self):
+        ''' Return the order total price. '''
+        
+        # NORMALY WILL RETURN A REULT OF (selling_prince * quantity)
+        return sum([a.total() for a in self.articles.all()])
+
+
+####
 ##      ORDERING PRODUCTS MODEL
 #####
 class Article(TimeStampedUUIDModel):
-    ''' Store information about Billing Articles. '''
+    ''' Store information about Order Articles. '''
     
+    order = models.ForeignKey(
+        Order, on_delete = models.CASCADE,
+        related_name = 'articles',
+        null = False, blank = False
+    )
     product = models.ForeignKey(
         Product, on_delete = models.CASCADE,
         related_name = 'articles',
@@ -49,43 +101,3 @@ class Article(TimeStampedUUIDModel):
         
         # NORMALY WILL RETURN A RESULT OF (selling_prince * quantity)
         return self.selling_price * self.quantity
-    
-    
-####
-##      ORDER MODEL
-#####
-class Order(TimeStampedUUIDModel):
-    ''' Store information about Order. '''
-    
-    articles = models.ManyToManyField(
-        Article, related_name = 'bills'
-    )
-    client = models.ForeignKey(
-        User, on_delete = models.CASCADE,
-        null = False, blank = False,
-        related_name = 'bills'
-    )
-    is_validated = models.BooleanField(default = False)
-    is_paid = models.BooleanField(default = False)
-    
-    # META CLASS
-    class Meta:
-        ''' Meta class for Order Model '''
-        
-        verbose_name = _('Order')
-        verbose_name_plural = _('Orders')
-        ordering = ['-created']
-    
-    def __str__(self):
-        return self.code
-    
-        
-    def get_id_prefix(self):
-        ''' Return a specific ID prefix for Articles Model Objects. '''
-        return 'ORDER'
-    
-    def total(self):
-        ''' Return the bill total price. '''
-        
-        # NORMALY WILL RETURN A REULT OF (selling_prince * quantity)
-        return sum([a.total() for a in self.articles.all()])

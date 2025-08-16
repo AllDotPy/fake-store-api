@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 
 from apps.orders.models import (
     Article, Order
@@ -18,7 +19,11 @@ class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         ''' Meta class for Article Serializer. '''
         model = Article
-        fields ="__all__"
+        fields = (
+            "product",
+            "selling_price",
+            "quantity"
+        )
         
     def to_representation(self, instance:Article):
         ''' Override Instance reprensentation method to customize fields. '''
@@ -42,19 +47,28 @@ class OrderSerializer(serializers.ModelSerializer):
     ''' Serializer class for Orders Model. '''
     
     articles = ArticleSerializer(many = True)
-    
+    status = serializers.CharField(default=Order.OrderStatus.WAITING_FOR_PAYMENT)
+
     # META CLASS
     class Meta:
         ''' Meta class for Order Serializer. '''
         model = Order
-        fields ="__all__"
+        fields = (
+            'id',
+            'client',
+            'articles',
+            'total',
+            'status',
+            'created',
+            'modified'
+        )
         extra_kwargs = {
-            'client':{
-                'read_only': True
-            },
-            'articles':{
-                'read_only': True
-            }
+            'client':{'read_only': True},
+            'total':{'read_only': True},
+            # 'articles':{'read_only': True},
+            'created':{'read_only': True},
+            'modified':{'read_only': True},
+            # 'is_paid':{'read_only': True}
         }
         
     def to_representation(self, instance:Order):
@@ -78,23 +92,32 @@ class OrderSerializer(serializers.ModelSerializer):
         rep['total'] = instance.total()
         
         return rep
-    
+
     def create(self, validated_data):
         ''' Override create method to auto create articles. '''
         
-        # GET ARTICLES FIRST
-        
         articles = validated_data.pop('articles')
-        user = self.context.get('view').request.user
-        # THEN CREATE THE ORDER OBJECT
-        bill= Order.objects.create(
+        user = self.context['request'].user
+
+        # Créer l'ordre
+        order = Order.objects.create(
             **validated_data,
-            client = user
+            client=user
         )
         
-        # NOW ADD EACH CREATED ARTICLE TO THE ORDER
-        for article in articles :
-            a = Article.objects.create(**article)
-            bill.articles.add(a)
-
-        return bill
+        # Créer tous les articles
+        for article_data in articles:
+            Article.objects.create(**article_data, order=order)
+        
+        if order:    
+            # CREATE TRANSACTION FOR ORDER
+            from apps.billings.models import Transaction
+            
+            order_transaction = Transaction.objects.create(
+                user=order.client,
+                order=order,
+                type=Transaction.TYPES.PAYMENT,
+                amount=float(order.total()),
+            )
+        
+        return order
