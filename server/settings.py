@@ -437,6 +437,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 PROJECT_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
+MEDIA_URL = "medias/"
 MEDIA_ROOT = "medias/"
 UPLOAD_ROOT = "medias/uploads/"
 

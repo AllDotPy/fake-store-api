@@ -42,6 +42,11 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
         unique = True,
         null=True
     )
+    avatar = models.ImageField(
+        verbose_name = _("Profile Photo"),
+        upload_to = 'users/avatars',
+        null = True, blank = True,
+    )
     is_active = models.BooleanField(default=True)
     is_verified = models.BooleanField(default=False)        # IF USER 'S PHONE NUMBER IS VERIFIED
     is_staff = models.BooleanField(default=False)

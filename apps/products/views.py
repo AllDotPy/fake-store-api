@@ -24,7 +24,7 @@ class ProductsViewSet(ModelViewSet):
     
     queryset = ProductSerializer.Meta.model.objects.all()
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     filterset_fields = ['category','brand']
     search_fields = [
         'name','description','brand',
@@ -39,6 +39,10 @@ class ProductsViewSet(ModelViewSet):
         # USER MUST BE AN ADMIN BEFORE REQUESTING DELETE OR UPDATE ACTION
         if self.action in ('destroy','update'):
             self.permission_classes = [IsAuthenticated,IsAdminUser]
+
+        # USER MUST BE LOGGED IN TO PERFORM LIKES
+        # if self.action == 'like':
+        #     self.permission_classes = [IsAuthenticated]
             
         return super().get_permissions()
     
@@ -52,7 +56,10 @@ class ProductsViewSet(ModelViewSet):
             if request.method == "DELETE":
                 if user in product.likes.all():
                     product.likes.remove(user)
-                    return Response({'detail': 'Product unliked .'}, status=status.HTTP_200_OK)
+                    return Response(
+                        self.get_serializer(product).data, 
+                        status=status.HTTP_200_OK
+                    )
                 else:
                     raise DataValidationError(
                         details="Product not liked yet."
@@ -60,7 +67,10 @@ class ProductsViewSet(ModelViewSet):
             if request.method == "POST":
                 if user not in product.likes.all():
                     product.likes.add(user)
-                    return Response({'detail': 'Product liked successfully.'}, status=status.HTTP_200_OK)
+                    return Response(
+                        self.get_serializer(product).data, 
+                        status=status.HTTP_200_OK
+                    )
                 else:
                     raise DataValidationError(
                         details="Product already liked."

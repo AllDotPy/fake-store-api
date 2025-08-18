@@ -19,9 +19,14 @@ class ProductMediaSerializer(serializers.ModelSerializer):
     def to_representation(self, instance:ProductMedia):
         """ Define how to represent ProductMedia Model Object as Json. """
 
-        return super().to_representation(
+        rep = super().to_representation(
             instance=instance
         )
+        return {
+            'id': rep['id'],
+            'code': rep['code'],
+            'file': rep['file']
+        }
 
 ####
 ##      PRODUCT SERIALIZER
@@ -40,14 +45,23 @@ class ProductSerializer(serializers.ModelSerializer):
         
         # GET INSTANCE REPRESENTATION FIRST
         rep = super().to_representation(instance)
+
+        user = self.context.get('view').request.user
         
         rep['category'] = {
             'id': str(instance.category.id),
             'code': instance.category.code,
             'name': instance.category.name
         }
+        # Likes
+        likes = instance.likes.all()
+        rep['likes'] = likes.count()
+        rep['has_been_liked'] = likes.filter(id = user.id).exists()
+
         # Add media details using ProductMediaSerializer
         media_queryset = instance.medias.all()
-        rep['medias'] = ProductMediaSerializer(media_queryset, many=True).data
+        rep['medias'] = ProductMediaSerializer(
+            media_queryset, many=True, context = self.context
+        ).data
         
         return rep
