@@ -14,6 +14,10 @@ from datetime import timedelta
 from pathlib import Path
 
 from django.conf.global_settings import MEDIA_ROOT
+from dotenv import load_dotenv
+import colorlog
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,6 +31,8 @@ SECRET_KEY = 'django-insecure-8##&_np2%r31e1hv&_&y*rw=ui#zg#mv@)k+inssb(+tm+cp1i
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
+ADMINS = [("Wilfried", "einswilligoeh@gmail.com"), ("Boris", "wokobogil@gmail")]
 
 ALLOWED_HOSTS = ['*']
 CORS_ORIGIN_ALLOW_ALL = True
@@ -67,6 +73,7 @@ LOCAL_APPS = [
     "apps.products",
     'apps.notifications',
     "apps.orders",
+    "apps.billings",
 ]
 
 INSTALLED_APPS = THIRDPARTY_APPS + LOCAL_APPS
@@ -281,11 +288,10 @@ JAZZMIN_SETTINGS = {
         "notifications.ReminderSettings": "fas fa-cogs",
         "reportings.Category": "fa fa-tag",
         "reportings.Report": "fa fa-inbox",
-        "billings.Wallet": "fa fa-university",
         "settings.GeneralSettings": "fas fa-cog",
         "settings.MessageSettings": "fas fa-envelope-open",
         "billings.Transaction": "fas fa-credit-card",
-        "billings.RechargeTransaction": "fas fa-rocket"
+        "orders.Order": "fas fa-clipboard-list",
     },
     # Icons that are used when one is not manually specified
     "default_icon_parents": "fas fa-chevron-circle-right",
@@ -446,3 +452,112 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.settings")
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# EasySwitch's config
+EASYSWITCH_ENVIRONMENT = os.getenv("EASYSWITCH_ENVIRONMENT")
+EASYSWITCH_TIMEOUT = os.getenv("EASYSWITCH_TIMEOUT")
+EASYSWITCH_DEBUG = os.getenv("EASYSWITCH_DEBUG")
+
+EASYSWITCH_LOGGING = os.getenv("EASYSWITCH_LOGGING")
+EASYSWITCH_LOG_LEVEL = os.getenv("EASYSWITCH_LOG_LEVEL")
+EASYSWITCH_LOG_FILE = BASE_DIR / "easyswitch.log"
+EASYSWITCH_CONSOLE_LOGGING = os.getenv("EASYSWITCH_CONSOLE_LOGGING")
+EASYSWITCH_LOG_MAX_SIZE = os.getenv("EASYSWITCH_LOG_MAX_SIZE")
+EASYSWITCH_LOG_BACKUPS = os.getenv("EASYSWITCH_LOG_BACKUPS")
+EASYSWITCH_LOG_COMPRESS = os.getenv("EASYSWITCH_LOG_COMPRESS")
+EASYSWITCH_LOG_FORMAT = os.getenv("EASYSWITCH_LOG_FORMAT")
+EASYSWITCH_LOG_ROTATE = os.getenv("EASYSWITCH_LOG_ROTATE")
+
+EASYSWITCH_ENABLED_PROVIDERS = os.getenv("EASYSWITCH_ENABLED_PROVIDERS")
+EASYSWITCH_DEFAULT_PROVIDER = os.getenv("EASYSWITCH_DEFAULT_PROVIDER")
+EASYSWITCH_CURRENCY = os.getenv("EASYSWITCH_CURRENCY")
+
+# EASYSWITCH_CINETPAY_API_KEY = os.getenv("EASYSWITCH_CINETPAY_API_KEY")
+# EASYSWITCH_CINETPAY_X_SECRET = os.getenv("EASYSWITCH_CINETPAY_X_SECRET")
+# EASYSWITCH_CINETPAY_X_STIE_ID = os.getenv("EASYSWITCH_CINETPAY_X_STIE_ID")
+# EASYSWITCH_CINETPAY_CALLBACK_URL = os.getenv("EASYSWITCH_CINETPAY_CALLBACK_URL")
+
+EASYSWITCH_FEDAPAY_SECRET_KEY = os.getenv("EASYSWITCH_FEDAPAY_SECRET_KEY")
+EASYSWITCH_FEDAPAY_CALLBACK_URL = os.getenv("EASYSWITCH_FEDAPAY_CALLBACK_URL")
+EASYSWITCH_FEDAPAY_ENVIRONMENT = os.getenv("EASYSWITCH_FEDAPAY_ENVIRONMENT")
+EASYSWITCH_FEDAPAY_WEBHOOK_SECRET = os.getenv("EASYSWITCH_FEDAPAY_WEBHOOK_SECRET")
+
+
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
+
+# LOGGING CONFIGURATION
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {name} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {asctime} {message}",
+            "style": "{",
+        },
+        "colored": {
+            "()": colorlog.ColoredFormatter,
+            "format": "%(log_color)s%(levelname)s :  %(asctime)s : %(name)s : %(message)s",
+            "log_colors": {
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red,bg_white",
+            },
+        }
+    },
+    "filters": {
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "filters": ["require_debug_true"],
+            "class": "logging.StreamHandler",
+            "formatter": "colored",
+        },
+        "mail_admins": {
+            "level": "ERROR",
+            "class": "django.utils.log.AdminEmailHandler",
+            "formatter": "verbose",
+        },
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": LOGS_DIR / "debug.log",
+            "formatter": "verbose",
+        },
+        "easyswitch_file": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOGS_DIR / "easyswitch.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["mail_admins"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "apps.billings": {
+            "handlers": ["console", "mail_admins", "easyswitch_file"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}

@@ -25,7 +25,8 @@ urlpatterns = [
     path('accounts/',include('apps.accounts.urls')),
     path('categories/',include('apps.categories.urls')),
     path('products/',include('apps.products.urls')),
-    path('orders/',include('apps.orders.urls'))
+    path('orders/',include('apps.orders.urls')),
+    path('billings/',include('apps.billings.urls')),
 ]\
 + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)\
 + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
