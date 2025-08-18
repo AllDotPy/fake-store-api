@@ -15,7 +15,6 @@ from apps.billings.serializers import (
     TransactionCreateSerializer,
     TransactionUpdateSerializer
 )
-from apps.billings.permissions import IsPaymentApiProvider
 from apps.billings.services import PaymentService
 from apps.billings.models import Transaction
 from core.exceptions import (
