@@ -1,15 +1,16 @@
 from rest_framework import routers
 
-from apps.orders.views import (
-    OrderViewSet,
+from apps.billings.views import (
+    TransactionViewSet,
 )
+
 
 # INSTANCIATE DEFAULT ROUTER
 router = routers.DefaultRouter(trailing_slash = False)
 
-# BILLS URLS
+# BILLINGS URLS
 router.register(
-    '', OrderViewSet
+    '', TransactionViewSet
 )
 
 urlpatterns = router.urls
