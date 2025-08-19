@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 
+from apps.billings.serializers import TransactionSerializer
 from apps.orders.models import (
     Article, Order
 )
@@ -88,9 +89,13 @@ class OrderSerializer(serializers.ModelSerializer):
             many = True
         ).data
         
-        # ADD TOTAL TOO
+        # ADD TOTAL
         rep['total'] = instance.total()
         
+        # ADD TRANSACTION
+        transaction = instance.transactions.first()
+        rep['transaction'] = TransactionSerializer(transaction).data if transaction else None
+                
         return rep
 
     def create(self, validated_data):

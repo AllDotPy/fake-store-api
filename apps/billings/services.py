@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Any, Dict, Optional, Union
 from django.conf import settings
@@ -68,11 +67,6 @@ class PaymentService:
         }
         
         client = EasySwitch.from_dict(config)
-        
-        # if env_file:
-        #     client = EasySwitch.from_env(env_file)
-        
-        client = client._get_integrator(Provider[str(settings.EASYSWITCH_DEFAULT_PROVIDER).upper()])
 
         return client
     
@@ -183,7 +177,7 @@ class PaymentService:
         """
           
         try:
-            response = asyncio.run(self._client.send_payment(transaction_detail))
+            response = self._client.send_payment(transaction_detail)
 
             if not response:
                 error_message = f"No response received from payment provider"
@@ -255,10 +249,9 @@ class PaymentService:
             Exception: For any other unexpected errors.
         """
         try:
-            # Parse webhook payload (async call)
-            webhook_data: WebhookEvent = asyncio.run(
-                self._client.parse_webhook(payload, headers)
-            )
+            # Parse webhook payload
+            webhook_data: WebhookEvent = self._client.parse_webhook(payload, headers)
+            
             logger.info(f"(process_webhook) Webhook data parsed: {webhook_data}")
 
             # Extract local transaction code safely

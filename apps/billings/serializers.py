@@ -12,7 +12,6 @@ class TransactionSerializer(serializers.ModelSerializer):
     ''' Serializer class for Transaction Model. '''
 
     user = UserSerializer(read_only=True)
-    user_id = serializers.UUIDField(write_only=True)
     
     # META CLASS
     class Meta:
@@ -21,7 +20,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         model = Transaction
         fields = [
             'id', 'code', 
-            'user', 'user_id', 'type', 
+            'user', 'type', 
             'status', 'amount', 'payment_link', 'reference',
             'created', 'modified'
         ]
