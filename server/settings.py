@@ -45,6 +45,8 @@ CORS_ORIGIN_ALLOW_ALL = True
 THIRDPARTY_APPS = [
     # 'admin_interface',
     # 'colorfield',
+    "daphne",
+    "channels",
     "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -74,6 +76,7 @@ LOCAL_APPS = [
     'apps.notifications',
     "apps.orders",
     "apps.billings",
+    "apps.realtime",
 ]
 
 INSTALLED_APPS = THIRDPARTY_APPS + LOCAL_APPS
@@ -393,6 +396,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'server.wsgi.application'
+ASGI_APPLICATION = 'server.asgi.application'
 
 
 # Database
@@ -560,4 +564,12 @@ LOGGING = {
             "propagate": False,
         },
     },
+}
+
+# Channel layer (Redis)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
+    }
 }

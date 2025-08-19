@@ -1,4 +1,6 @@
 import logging
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from typing import Any, Dict, Optional, Union
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -232,7 +234,7 @@ class PaymentService:
                 detail=f"Failed to process payment response. Response processing error: {str(e)}",
             )
     
-    def process_webhook(self, payload: Dict[str, Any], headers: Dict[str, Any]) -> WebhookEvent:
+    def process_webhook(self, payload: Dict[str, Any], headers: Dict[str, Any]) -> T:
         """
         Process incoming webhook data from the payment provider.
                 
@@ -270,18 +272,19 @@ class PaymentService:
                 error = f"Transaction not found: {str(e)}"
                 logger.error(error)
                 raise TransactionNotFoundError(error)
-            
+
+            # Process webhook according to provider
             self._call_process_webhook_functions(
                 suffix=webhook_data.provider,
                 webhook_data=webhook_data,
                 transaction=transaction
             )
+            
+            # Send realtime data to frontend with channels (web socket)
+            if not transaction.status == T.STATUES.PENDING:
+                self._send_realtime_transaction_info_to_frontend(transaction)
 
-            # # Process according to provider
-            # if transaction and webhook_data.provider == "fedapay":
-            #     self._process_fedapay_webhook(webhook_data, transaction)
-
-            return webhook_data
+            return transaction
         
         except PaymentWebhookError as e:
             logger.error(f"Payment provider webhook error: {e}")
@@ -324,6 +327,47 @@ class PaymentService:
             transaction.status = self.get_internal_status_from_provider(webhook_data.status)
             transaction.save()
 
+    def _send_realtime_transaction_info_to_frontend(self, transaction: T) -> None:
+        """Send transaction data to frontend after callback
+
+        Args:
+            transaction (T): transaction object
+
+        Returns:
+            _type_: None
+        """
+        # Notify transaction update via WebSocket
+        order = getattr(transaction, 'order', None)
+        if order:
+            order.refresh_from_db()
+            user_id = getattr(getattr(order, 'client', None), 'id', None)
+        else:
+            user_id = None
+
+        if not user_id:
+            logger.warning(f"No user_id found for transaction {transaction.code}; skipping realtime notification.")
+            return
+
+        try:
+            from apps.orders.serializers import OrderSerializer
+            payload = OrderSerializer(order).data
+        except Exception as e:
+            logger.error(f"Failed to serialize order for transaction {transaction.code}: {str(e)}")
+            return
+
+        channel_layer = get_channel_layer()
+        try:
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user_id}",
+                {
+                    "type": "transaction_update",
+                    "payload": payload
+                }
+            )
+            logger.info("Realtime transaction update sent to user_%s", user_id)
+        except Exception as e:
+            logger.error("Failed to send realtime transaction update for user_%s: %s", user_id, str(e))
+    
     # --- EASYSWITCH STATUS MAPPING ---
     
     def map_easyswitch_status_to_internal(self, provider_status: Union[str, EasySwitchTransactionStatus]) -> Optional[str]:
