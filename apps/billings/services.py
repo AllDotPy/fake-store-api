@@ -364,10 +364,10 @@ class PaymentService:
                     "payload": payload
                 }
             )
-            logger.info("Realtime transaction update sent to user_%s", user_id)
+            logger.info(f"Realtime transaction update sent to user_{user_id}")
         except Exception as e:
-            logger.error("Failed to send realtime transaction update for user_%s: %s", user_id, str(e))
-    
+            logger.error(f"Failed to send realtime transaction update for user_{user_id}: {str(e)}")
+
     # --- EASYSWITCH STATUS MAPPING ---
     
     def map_easyswitch_status_to_internal(self, provider_status: Union[str, EasySwitchTransactionStatus]) -> Optional[str]:
