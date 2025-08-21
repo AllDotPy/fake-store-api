@@ -16,6 +16,7 @@ wheels/
 
 # Env file
 .env
+.env.example
 
 # VS Code
 .vscode/

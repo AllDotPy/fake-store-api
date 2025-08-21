@@ -489,7 +489,7 @@ LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
 
 # LOGGING CONFIGURATION
-LOGGING = {
+LOGGINGS = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {

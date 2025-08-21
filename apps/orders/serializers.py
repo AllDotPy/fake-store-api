@@ -32,7 +32,8 @@ class ArticleSerializer(serializers.ModelSerializer):
         rep = super().to_representation(instance)
         
         rep['product'] = ProductSerializer(
-            instance = instance.product
+            instance = instance.product,
+            context = self.context
         ).data
         
         rep['total'] = instance.total()
@@ -85,7 +86,7 @@ class OrderSerializer(serializers.ModelSerializer):
         # ADD ARTICLES TO REPRESENTATION
         rep['articles'] = ArticleSerializer(
             instance = instance.articles,
-            many = True
+            many = True, context = self.context
         ).data
         
         # ADD TOTAL TOO

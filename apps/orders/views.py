@@ -18,7 +18,7 @@ class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = [
-        'client','is_paid','is_validated'
+        'client', 'status',# 'is_paid','is_validated'
     ]
     search_fields = [
         'client__first_name','client__last_name',
