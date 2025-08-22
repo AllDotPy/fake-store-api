@@ -4,6 +4,7 @@ from py3_infobip import (
     SmsClient,
     SmsTextSimpleBody
 )
+from django.conf import settings
 
 
 ####
@@ -15,8 +16,8 @@ class MessageManager(object):
     def __init__(self):
     
         self.infobip_client = SmsClient(
-                api_key = "96f83ac9cf23ed1550a7af75a9202dac-e36db9aa-d1ab-4747-bcd1-57349f97b742",
-                url = "w1mkkd.api.infobip.com"
+            api_key = settings.INFOBIP_API_KEY,
+            url = settings.INFOBIB_URL
         )
         
     def send_sms(self,msg,_to:str):

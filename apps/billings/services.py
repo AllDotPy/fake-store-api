@@ -45,7 +45,7 @@ class PaymentService:
             env_file = settings.BASE_DIR / '.env'
             self._client = client or self._get_client(env_file)
             
-            self._validate_client_configuration()
+            # self._validate_client_configuration()
         except Exception as e:
             logger.error(f"Failed to initialize EasySwitch client: {str(e)}")
             raise ConfigurationError(
@@ -55,7 +55,24 @@ class PaymentService:
     def _get_client(self, env_file: str=None):
         config = {
             "debug": True,
+            # "default_provider": Provider.PAYGATE,
             "providers": {
+                Provider.PAYGATE: {
+                    "api_key": settings.EASYSWITCH_PAYGATE_API_KEY,
+                    "environment": settings.EASYSWITCH_ENVIRONMENT,
+                    "callback_url": settings.EASYSWITCH_PAYGATE_CALLBACK_URL,
+                },
+                Provider.CINETPAY: {
+                    "api_key": settings.EASYSWITCH_CINETPAY_API_KEY,
+                    "callback_url": settings.EASYSWITCH_CINETPAY_CALLBACK_URL,
+                    "environment": settings.EASYSWITCH_ENVIRONMENT,
+                    "extra": {
+                        "secret": settings.EASYSWITCH_CINETPAY_X_SECRET,
+                        "site_id": settings.EASYSWITCH_CINETPAY_X_STIE_ID,
+                        "channels": "ALL",     # More details on Cinetpay's documentation.
+                        "lang": "fr"        # More details on Cinetpay's documentation.
+                    }
+                },
                 Provider.FEDAPAY: {
                     "api_secret": settings.EASYSWITCH_FEDAPAY_SECRET_KEY,
                     "callback_url": settings.EASYSWITCH_FEDAPAY_CALLBACK_URL,
@@ -64,9 +81,10 @@ class PaymentService:
                     "extra": {
                         "webhook_secret": settings.EASYSWITCH_FEDAPAY_WEBHOOK_SECRET,
                     }
-                }
+                },
             }
         }
+        print(config)
         
         client = EasySwitch.from_dict(config)
 
@@ -180,6 +198,7 @@ class PaymentService:
           
         try:
             response = self._client.send_payment(transaction_detail)
+            print(response)
 
             if not response:
                 error_message = f"No response received from payment provider"
@@ -192,6 +211,8 @@ class PaymentService:
         except Exception as e:
             error_message = f"Failed to send payment request. Provider error: {str(e)}"
             logger.error(error_message)
+            import traceback
+            traceback.print_stack()
             
             raise PaymentProcessingError(
                 detail=error_message
