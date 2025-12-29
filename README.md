@@ -69,7 +69,7 @@ Once the server is running, you can access the API at the following URL: `http:/
 
 Refer to the API documentation for more details on available endpoints and their usage.
 
-## popuulating the database
+## populating the database
 
 to create generic products with categories run:
 ```bash
@@ -93,7 +93,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Contact
 
-For any questions or suggestions, feel free to contact us at: contact@fletx.com
+For any questions or suggestions, feel free to contact us at: hello@alldotpy.com
 ```
 
 Feel free to customize this template according to the specifics of your project and any additional information you want to include.
