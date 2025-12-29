@@ -18,8 +18,8 @@ Fake Store is a demonstration project designed to showcase the capabilities of t
 
 Before you begin, ensure you have the following installed:
 
-- Python 3.8 or higher
-- Django 3.2 or higher
+- Python 3.11 or higher
+- Django 4.2 or higher
 - Django Rest Framework
 - uv (recommended for dependency management)
 
@@ -28,14 +28,14 @@ Before you begin, ensure you have the following installed:
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/fake-store.git
+git clone https://github.com/AllDotPy/fake-store-api.git
 cd fake-store
 ```
 
 2. Create a virtual environment and activate it:
 
 ```bash
-python -m venv venv
+uv venv --python 3.11
 source venv/bin/activate  # On Linux/Mac
 venv\Scripts\activate  # On Windows
 ```
@@ -43,8 +43,7 @@ venv\Scripts\activate  # On Windows
 3. Install dependencies with uv:
 
 ```bash
-pip install uv
-uv pip install -r requirements.txt
+uv sync
 ```
 
 4. Set up the database:
@@ -61,9 +60,16 @@ python manage.py runserver
 
 ## Usage
 
-Once the server is running, you can access the API at the following URL: `http://localhost:8000/api/`.
+Once the server is running, you can access the API at the following URL: `http://localhost:8000/`.
 
 Refer to the API documentation for more details on available endpoints and their usage.
+
+## popuulating the database
+
+to create generic products with categories run:
+```bash
+python manage.py populate # this will create 100 products
+```
 
 ## Contributing
 
