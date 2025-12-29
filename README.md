@@ -19,7 +19,7 @@ Fake Store is a demonstration project designed to showcase the capabilities of t
 Before you begin, ensure you have the following installed:
 
 - Python 3.11 or higher
-- Django 4.2 or higher
+- Django 5.2.4 or higher
 - Django Rest Framework
 - uv (recommended for dependency management)
 
@@ -52,7 +52,12 @@ uv sync
 python manage.py migrate
 ```
 
-5. Run the development server:
+5. Create a super user
+```bash
+python manage.py createsuperuser
+```
+
+6. Run the development server:
 
 ```bash
 python manage.py runserver
@@ -68,7 +73,8 @@ Refer to the API documentation for more details on available endpoints and their
 
 to create generic products with categories run:
 ```bash
-python manage.py populate # this will create 100 products
+python manage.py populate
+# this will create 100 products use -l to specify the number of products.
 ```
 
 ## Contributing
